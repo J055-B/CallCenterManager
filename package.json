@@ -1,0 +1,16 @@
+{
+  "name": "jmb-manager",
+  "version": "1.0.0",
+  "description": "JMB CallCenter Manager",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node api/index.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0",
+    "node-fetch": "^2.7.0"
+  }
+}
