@@ -544,9 +544,10 @@ header{background:var(--s1);border-bottom:1px solid var(--b1);padding:0 20px;dis
               <select id="cf-brand" onchange="onClientFilterChange();updateClientAgentDropdown()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--t1);font-size:13px;outline:none">
                 <option value="">All Brands</option>
                 <option value="7">Relocation2Canada</option>
-                <option value="8">CanadaCIS</option>
-                <option value="9">CanadaVisa</option>
-                <option value="10">MigrateEasy</option>
+                <option value="4">Canada CIS</option>
+                <option value="11">Canada Process</option>
+                <option value="10">Multi Brand</option>
+                <option value="1">N/A</option>
               </select>
             </div>
             <div>
@@ -800,6 +801,49 @@ function initApp() {
   buildSelects();
   renderAll();
   applyRole(userRole);
+  // Load real agents from Fireberry
+  loadFireberryAgents();
+}
+
+// ── LOAD AGENTS FROM FIREBERRY ────────────────────────────────
+async function loadFireberryAgents() {
+  try {
+    const data = await apiPost('/api/fireberry?action=query', {
+      objecttype: 9,
+      query: "(statuscode = 1)",
+      pageSize: 200, page: 1,
+      sortby: 'fullname', sorttype: 'ASC'
+    });
+    const fbAgents = data?.data?.Data || [];
+    if (!fbAgents.length) return;
+
+    // Map Fireberry agents to our local agent format
+    agents = fbAgents.map(a => ({
+      id:      a.crmuserid || a.ownerid,
+      cid:     a.crmuserid || a.ownerid,
+      name:    a.fullname || (a.firstname + ' ' + a.lastname).trim(),
+      email:   a.emailaddress1 || '',
+      area:    a.pcfsystemfield802name || '—',    // Department
+      brand:   a.pcfsystemfield774name || '—',   // User Brand
+      branch:  a.systemfield425name   || '—',    // Branch
+      lang:    a.systemfield578name   || '—',    // Desk Lang
+      position:a.pcfsystemfield3920name || '',   // Agent Position
+      active:  a.statuscode === 1,
+      fromCRM: true
+    }));
+
+    // Cache agents for client filter dropdown too
+    agentsForFilter = fbAgents;
+
+    // Re-render with real data
+    renderStats();
+    renderAgents();
+    populateAgentFilterDropdowns();
+
+    toast('Agents loaded from Fireberry (' + agents.length + ')', 'gn');
+  } catch(e) {
+    console.error('Failed to load agents from Fireberry:', e);
+  }
 }
 
 // ── NAVIGATION ───────────────────────────────────────────────
@@ -890,8 +934,9 @@ function buildSelects() {
 function renderStats() {
   const active = agents.filter(a => a.active).length;
   const total  = assets.reduce((s, a) => s + Number(a.qty), 0);
+  const fromCRM = agents.some(a => a.fromCRM);
   document.getElementById('stats').innerHTML = `
-    <div class="stat">   <div class="stat-n">${agents.length}</div><div class="stat-l">Agents</div></div>
+    <div class="stat">   <div class="stat-n">${agents.length}</div><div class="stat-l">${fromCRM ? 'Agents (CRM)' : 'Agents'}</div></div>
     <div class="stat gn"><div class="stat-n" style="color:var(--gn)">${active}</div><div class="stat-l">Active</div></div>
     <div class="stat">   <div class="stat-n">${total}</div><div class="stat-l">Total Stock</div></div>
     <div class="stat am"><div class="stat-n" style="color:var(--am)">${loans.length}</div><div class="stat-l">On Loan</div></div>
@@ -1777,16 +1822,12 @@ let agentsForFilter = [];  // cached agents for filter dropdown
 
 // ── Init panel: load agents for dropdown ──────────────────────
 async function initClientsPanel() {
-  // Load agents into dropdown if not already loaded
-  if (agentsForFilter.length === 0) {
-    await loadAgentsForFilter();
-  }
+  await loadBrandsAndBrands();
 }
 
-async function loadAgentsForFilter() {
-  const sel = document.getElementById('cf-agent');
-  if (!sel) return;
+async function loadBrandsAndBrands() {
   try {
+    // Load all active agents to extract real brands and branches
     const data = await apiPost('/api/fireberry?action=query', {
       objecttype: 9,
       query: "(statuscode = 1)",
@@ -1794,13 +1835,42 @@ async function loadAgentsForFilter() {
       sortby: 'fullname', sorttype: 'ASC'
     });
     agentsForFilter = data?.data?.Data || [];
-    sel.innerHTML = '<option value="">All Agents</option>' +
-      agentsForFilter.map(a =>
-        `<option value="${esc(a.crmuserid || a.ownerid)}">${esc(a.fullname)}</option>`
-      ).join('');
+
+    // Extract unique brands
+    const brands = {};
+    const branches = {};
+    agentsForFilter.forEach(a => {
+      if (a.pcfsystemfield774 && a.pcfsystemfield774name)
+        brands[a.pcfsystemfield774] = a.pcfsystemfield774name;
+      if (a.systemfield425 && a.systemfield425name)
+        branches[a.systemfield425] = a.systemfield425name;
+    });
+
+    // Populate brand dropdown dynamically
+    const brandSel = document.getElementById('cf-brand');
+    if (brandSel) {
+      brandSel.innerHTML = '<option value="">All Brands</option>' +
+        Object.entries(brands).map(([id, name]) =>
+          `<option value="${esc(id)}">${esc(name)}</option>`
+        ).join('');
+    }
+
+    // Populate branch dropdown dynamically
+    const branchSel = document.getElementById('cf-branch');
+    if (branchSel) {
+      branchSel.innerHTML = '<option value="">All Branches</option>' +
+        Object.entries(branches).map(([id, name]) =>
+          `<option value="${esc(id)}">${esc(name)}</option>`
+        ).join('');
+    }
+
   } catch(e) {
-    console.error('Failed to load agents for filter:', e);
+    console.error('Failed to load brands/branches:', e);
   }
+}
+
+async function loadAgentsForFilter() {
+  // kept for compatibility
 }
 
 // ── Build query from active filters ───────────────────────────
@@ -1808,16 +1878,22 @@ function buildClientQuery() {
   const brand  = document.getElementById('cf-brand')?.value;
   const branch = document.getElementById('cf-branch')?.value;
   const agent  = document.getElementById('cf-agent')?.value;
-  const parts  = [];
 
-  // Brand: pcfsystemfield733
-  if (brand)  parts.push(`(pcfsystemfield733 = '${brand}')`);
-  // Branch: pcfsystemfield3861
-  if (branch) parts.push(`(pcfsystemfield3861 = '${branch}')`);
-  // Agent: pcfsystemfield655 (ownerid in leads)
-  if (agent)  parts.push(`(pcfsystemfield655 = '${agent}')`);
+  // For leads (obj 3): brand=pcfsystemfield733, branch=pcfsystemfield3861, agent=pcfsystemfield655
+  const leadParts = [];
+  if (brand)  leadParts.push(`(pcfsystemfield733 = '${brand}')`);
+  if (branch) leadParts.push(`(pcfsystemfield3861 = '${branch}')`);
+  if (agent)  leadParts.push(`(pcfsystemfield655 = '${agent}')`);
 
-  return parts.join(' AND ') || null;
+  // For accounts (obj 1): brand=pcfsystemfield733, agent=ownerid
+  const accountParts = [];
+  if (brand)  accountParts.push(`(pcfsystemfield733 = '${brand}')`);
+  if (agent)  accountParts.push(`(ownerid = '${agent}')`);
+
+  return {
+    leadQuery:    leadParts.join(' AND ')    || null,
+    accountQuery: accountParts.join(' AND ') || null
+  };
 }
 
 // ── Update active filter chips ─────────────────────────────────
@@ -1847,8 +1923,14 @@ function onClientFilterChange() {
 
 // ── Main search ────────────────────────────────────────────────
 async function searchClients() {
-  const query = buildClientQuery();
+  const { leadQuery, accountQuery } = buildClientQuery();
   updateFilterChips();
+
+  // Require at least one filter
+  if (!leadQuery && !accountQuery) {
+    toast('Select at least one filter before searching', 'am');
+    return;
+  }
 
   // Show loading
   document.getElementById('clients-leads-list').innerHTML    = '<div class="empty-state"><div class="loading-spin"></div> Loading leads...</div>';
@@ -1858,13 +1940,13 @@ async function searchClients() {
   const [leadsData, accountsData] = await Promise.all([
     apiPost('/api/fireberry?action=query', {
       objecttype: 3,
-      query:      query,
+      query:      leadQuery,
       pageSize:   100, page: 1,
       sortby:     'createdon', sorttype: 'DESC'
     }),
     apiPost('/api/fireberry?action=query', {
       objecttype: 1,
-      query:      query,
+      query:      accountQuery,
       pageSize:   100, page: 1,
       sortby:     'createdon', sorttype: 'DESC'
     })
@@ -2103,8 +2185,8 @@ let agentFilterBranch = '';
 
 function populateAgentFilterDropdowns() {
   // Pull unique brands and branches from loaded agents array
-  const brands   = [...new Set(agents.map(a => a.brand).filter(Boolean))].sort();
-  const branches = [...new Set(agents.map(a => a.branch).filter(Boolean))].sort();
+  const brands   = [...new Set(agents.map(a => a.brand).filter(b => b && b !== '—'))].sort();
+  const branches = [...new Set(agents.map(a => a.branch).filter(b => b && b !== '—'))].sort();
 
   const brandSel  = document.getElementById('af-brand');
   const branchSel = document.getElementById('af-branch');
@@ -2121,6 +2203,18 @@ function filterAgentsByBrandBranch() {
   agentFilterBrand  = document.getElementById('af-brand')?.value  || '';
   agentFilterBranch = document.getElementById('af-branch')?.value || '';
   renderAgents();
+  // Also update branch dropdown based on brand selection
+  if (agentFilterBrand) {
+    const branches = [...new Set(agents.filter(a => a.brand === agentFilterBrand).map(a => a.branch).filter(b => b && b !== '—'))].sort();
+    const branchSel = document.getElementById('af-branch');
+    if (branchSel) {
+      const cur = branchSel.value;
+      branchSel.innerHTML = '<option value="">All Branches</option>' +
+        branches.map(b => `<option value="${esc(b)}" ${b===cur?'selected':''}>${esc(b)}</option>`).join('');
+    }
+  } else {
+    populateAgentFilterDropdowns();
+  }
 }
 
 function clearAgentFilters() {
@@ -2166,33 +2260,13 @@ async function updateClientAgentDropdown() {
   const sel    = document.getElementById('cf-agent');
   if (!sel) return;
 
-  // Build query for agents
-  const parts = ['(statuscode = 1)'];
-  // Map brand select value to pcfsystemfield774 value
-  if (brand)  parts.push(`(pcfsystemfield774 = '${brand}')`);
-  // Map branch select value to systemfield425 value  
-  if (branch) parts.push(`(systemfield425 = '${branch}')`);
+  // Filter from cached agents (already loaded)
+  let filtered = agentsForFilter;
+  if (brand)  filtered = filtered.filter(a => String(a.pcfsystemfield774) === String(brand));
+  if (branch) filtered = filtered.filter(a => String(a.systemfield425)    === String(branch));
 
-  sel.innerHTML = '<option value="">Loading agents...</option>';
-  sel.disabled  = true;
-
-  try {
-    const data = await apiPost('/api/fireberry?action=query', {
-      objecttype: 9,
-      query:      parts.join(' AND '),
-      pageSize:   200, page: 1,
-      sortby:     'fullname', sorttype: 'ASC'
-    });
-    const agts = data?.data?.Data || [];
-    sel.innerHTML = `<option value="">All Agents (${agts.length})</option>` +
-      agts.map(a => `<option value="${esc(a.crmuserid||a.ownerid)}">${esc(a.fullname)}</option>`).join('');
-    sel.disabled = false;
-    // Cache for filter module too
-    agentsForFilter = agts;
-  } catch(e) {
-    sel.innerHTML = '<option value="">All Agents</option>';
-    sel.disabled  = false;
-  }
+  sel.innerHTML = `<option value="">All Agents (${filtered.length})</option>` +
+    filtered.map(a => `<option value="${esc(a.crmuserid||a.ownerid)}">${esc(a.fullname)}</option>`).join('');
 }
 
 </script>
