@@ -157,6 +157,14 @@ module.exports = async (req, res) => {
       const agents = data?.data?.Data || data?.Data || [];
 
       // Map to clean agent objects using known field names
+      // Map Microsoft language codes to names
+      const LANG_CODES = {
+        1033: 'English', 1034: 'Spanish', 3082: 'Spanish',
+        1036: 'French',  1037: 'Hebrew',  1046: 'Portuguese',
+        1049: 'Russian', 2052: 'Chinese', 1041: 'Japanese',
+        1031: 'German',  1040: 'Italian', 1043: 'Dutch',
+      };
+
       const mapped = agents.map(a => ({
         id:       a.systemuserid || a.id,
         name:     a.fullname     || a.owneridname || a.ownerid,
@@ -164,9 +172,9 @@ module.exports = async (req, res) => {
         title:    a.title        || '',
         brand:    a.pcfsystemfield_brand || a['businessunitid@odata.bind'] || '',
         bu_name:  a.businessunitidname  || '',
-        lang:     a.pcfsystemfield_lang || a.languageid || '',
+        lang:     LANG_CODES[a.languageid] || a.pcfsystemfield_lang || (a.languageid ? String(a.languageid) : ''),
         active:   a.statuscode === 1 || a.isdisabled === false,
-        raw:      a  // keep raw data for debugging
+        raw:      a
       }));
 
       return res.json({ agents: mapped, total: mapped.length });
