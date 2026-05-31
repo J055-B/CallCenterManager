@@ -133,8 +133,11 @@ module.exports = async (req, res) => {
 
     // ── GENERIC QUERY ──────────────────────────
     // Pass any Powerlink query body directly
+    // If query is null/empty, omit it (returns all records)
     if (action === 'query' && req.method === 'POST') {
-      const data = await fbQuery(req.body);
+      const body = { ...req.body };
+      if (!body.query) delete body.query;
+      const data = await fbQuery(body);
       return res.json(data);
     }
 

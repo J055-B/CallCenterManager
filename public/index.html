@@ -381,9 +381,7 @@ header{background:var(--s1);border-bottom:1px solid var(--b1);padding:0 20px;dis
       <button class="nav-btn " id="nav-returned" onclick="showPanel('returned')">
       <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span><span>Returned</span>
     </button>
-      <button class="nav-btn " id="nav-teams" onclick="showPanel('teams')">
-      <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Teams</span>
-    </button>
+
       <button class="nav-btn " id="nav-clients" onclick="showPanel('clients')">
       <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><span>Clients</span>
     </button>
@@ -426,6 +424,21 @@ header{background:var(--s1);border-bottom:1px solid var(--b1);padding:0 20px;dis
             </button>
           </div>
         </div>
+
+        <!-- AGENT FILTER BAR -->
+        <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select id="af-brand" onchange="filterAgentsByBrandBranch()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--t1);font-size:13px;outline:none;min-width:160px">
+              <option value="">All Brands</option>
+            </select>
+            <select id="af-branch" onchange="filterAgentsByBrandBranch()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--t1);font-size:13px;outline:none;min-width:140px">
+              <option value="">All Branches</option>
+            </select>
+            <button class="btn" onclick="clearAgentFilters()" style="font-size:12px;padding:6px 12px">&#10005; Clear</button>
+          </div>
+          <span id="af-results" style="font-size:12px;color:var(--t2);align-self:center"></span>
+        </div>
+
         <div id="agent-drawer" style="display:none" class="drawer">
           <div class="drawer-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Add New Agent</div>
           <div class="drawer-grid">
@@ -521,30 +534,63 @@ header{background:var(--s1);border-bottom:1px solid var(--b1);padding:0 20px;dis
       <div class="panel" id="panel-clients">
         <div class="sh">
           <span class="sh-title">Clients</span>
-          <div class="sh-actions">
-            <button class="btn btn-p" id="btn-add-client" onclick="toggleDrawer('client')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span id="add-client-label">Add Client</span>
-            </button>
-          </div>
         </div>
-        <div id="client-drawer" style="display:none" class="drawer">
-          <div class="drawer-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Add Client from Fireberry</div>
-          <div class="drawer-grid">
-            <div class="drawer-field" style="grid-column:1/-1">
-              <label>Fireberry URL</label>
-              <input id="new-client-url" placeholder="https://app.fireberry.com/app/record/1/..." style="width:100%">
-              <div style="font-size:10px;color:var(--t3);margin-top:4px">Paste the full URL from Fireberry (Account or Lead)</div>
+
+        <!-- FILTER BAR -->
+        <div class="card" style="padding:16px;margin-bottom:14px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:12px">
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px">Brand</label>
+              <select id="cf-brand" onchange="onClientFilterChange();updateClientAgentDropdown()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--t1);font-size:13px;outline:none">
+                <option value="">All Brands</option>
+                <option value="7">Relocation2Canada</option>
+                <option value="8">CanadaCIS</option>
+                <option value="9">CanadaVisa</option>
+                <option value="10">MigrateEasy</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px">Branch</label>
+              <select id="cf-branch" onchange="onClientFilterChange();updateClientAgentDropdown()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--t1);font-size:13px;outline:none">
+                <option value="">All Branches</option>
+                <option value="1">Israel</option>
+                <option value="2">Argentina</option>
+                <option value="3">Mexico</option>
+                <option value="4">Colombia</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px">Agent</label>
+              <select id="cf-agent" onchange="onClientFilterChange()" style="width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--t1);font-size:13px;outline:none">
+                <option value="">All Agents</option>
+              </select>
+              <div style="font-size:10px;color:var(--t3);margin-top:3px">Select Brand/Branch first to filter agents</div>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn btn-p" onclick="searchClients()" style="width:100%">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+              </button>
             </div>
           </div>
-          <div class="drawer-actions">
-            <button class="btn" onclick="toggleDrawer('client')">Cancel</button>
-            <button class="btn btn-p" onclick="addClient()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Client</button>
-          </div>
+          <div id="cf-active-filters" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         </div>
-        <div id="clients-container"></div>
+
+        <!-- TABS -->
+        <div style="display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--b1)">
+          <button class="client-tab active" id="ctab-leads" onclick="switchClientTab('leads')" style="padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--ac);border-bottom:2px solid var(--ac);transition:all .15s">
+            Leads <span id="ctab-leads-count" style="font-size:11px;background:var(--acg);color:var(--ac);border-radius:10px;padding:1px 7px;margin-left:4px">0</span>
+          </button>
+          <button class="client-tab" id="ctab-accounts" onclick="switchClientTab('accounts')" style="padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--t2);border-bottom:2px solid transparent;transition:all .15s">
+            Accounts <span id="ctab-accounts-count" style="font-size:11px;background:var(--s3);color:var(--t2);border-radius:10px;padding:1px 7px;margin-left:4px">0</span>
+          </button>
+        </div>
+
+        <!-- RESULTS -->
+        <div id="clients-leads-pane" class="card"><div id="clients-leads-list"><div class="empty-state"><div class="empty-ico">&#128269;</div>Select filters and click Search</div></div></div>
+        <div id="clients-accounts-pane" class="card" style="display:none"><div id="clients-accounts-list"></div></div>
       </div>
 
-      <!-- CLIENT DETAIL -->
       <div class="panel" id="panel-client-detail">
         <button class="back-btn" onclick="showPanel('clients')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg> Back to Clients</button>
         <div id="client-detail-content"></div>
@@ -757,8 +803,8 @@ function initApp() {
 }
 
 // ── NAVIGATION ───────────────────────────────────────────────
-const ALL_PANELS = ['agents','assets','loans','returned','teams','clients','client-detail','cfg-agents','cfg-assets'];
-const MENU_PANELS = ['agents','assets','loans','returned','teams','clients'];
+const ALL_PANELS = ['agents','assets','loans','returned','clients','client-detail','cfg-agents','cfg-assets'];
+const MENU_PANELS = ['agents','assets','loans','returned','clients'];
 
 function showPanel(name) {
   currentPanel = name;
@@ -784,8 +830,7 @@ function showPanel(name) {
   if (name === 'returned')   renderReturned();
   if (name === 'cfg-agents') renderCfgAgents();
   if (name === 'cfg-assets') renderCfgAssets();
-  if (name === 'teams')   loadTeams();
-  if (name === 'clients') loadClients();
+  if (name === 'clients') initClientsPanel();
 }
 
 // ── UTILS ────────────────────────────────────────────────────
@@ -1459,6 +1504,8 @@ function loadData() {
 function renderAll() {
   renderStats();
   showPanel('agents');
+  // Populate agent filter dropdowns after agents load
+  setTimeout(populateAgentFilterDropdowns, 100);
 }
 
 // Re-apply role after dynamic renders
@@ -1631,10 +1678,18 @@ async function loadTeamAgents(buId, teamId) {
       <div class="agent-av">${ini(a.name)}</div>
       <div class="agent-info">
         <div class="agent-name">${esc(a.name)}</div>
-        <div class="agent-meta">${a.email ? esc(a.email) + ' &middot; ' : ''}${esc(a.bu_name || '')}</div>
+        <div class="agent-meta">
+          ${a.email ? `<span style="color:var(--ac)">${esc(a.email)}</span> &middot; ` : ''}
+          ${a.dept ? esc(a.dept) + ' &middot; ' : ''}
+          ${a.branch ? '&#128205; ' + esc(a.branch) : ''}
+          ${a.position ? ' &middot; ' + esc(a.position) : ''}
+        </div>
       </div>
-      ${a.lang ? `<span class="chip c-cy">${esc(a.lang)}</span>` : ''}
-      <span class="badge b-on">Active</span>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        ${a.lang ? `<span class="chip c-cy">${esc(a.lang)}</span>` : ''}
+        ${a.brand ? `<span class="chip c-pu">${esc(a.brand)}</span>` : ''}
+        <span class="badge b-on">Active</span>
+      </div>
     </div>`).join('');
 }
 
@@ -1663,147 +1718,10 @@ async function deleteTeam(id) {
 let clients = [];
 let currentClientId = null;
 
-async function loadClients() {
-  const el = document.getElementById('clients-container');
-  if (!el) return;
-  el.innerHTML = '<div class="empty-state"><div class="loading-spin"></div></div>';
-  const data = await apiGet('/api/fireberry?action=clients');
-  clients = Array.isArray(data) ? data : [];
-  renderClients();
-}
 
-function renderClients() {
-  const el = document.getElementById('clients-container');
-  if (!el) return;
-  if (!clients.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ico">&#128101;</div>No clients added yet.<br>Paste a Fireberry client URL to add one.</div>';
-    return;
-  }
-  el.innerHTML = clients.map(c => {
-    const isAccount = c.object_type === '1';
-    const badge = isAccount
-      ? `<span class="account-badge"><svg viewBox="0 0 24 24" fill="#FBB040" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ACCOUNT</span>`
-      : `<span class="lead-badge">&#9679; LEAD</span>`;
-    return `<div class="client-card" onclick="openClient('${esc(c.record_id)}','${esc(c.object_type)}','${c.id}')">
-      <div class="client-card-hdr">
-        <div class="client-avatar-lg" style="width:40px;height:40px;font-size:13px">${c.label ? ini(c.label) : '?'}</div>
-        <div style="flex:1">
-          ${badge}
-          <div class="client-name">${c.label ? esc(c.label) : 'Loading...'}</div>
-          <div class="client-meta">ID: ${esc(c.record_id.slice(0,8))}... &middot; Added ${new Date(c.created_at).toLocaleDateString()}</div>
-        </div>
-        <button class="btn btn-sm btn-r" onclick="deleteClient(event,${c.id})">&#10005;</button>
-      </div>
-    </div>`;
-  }).join('');
-}
 
-async function addClient() {
-  const urlInput = (document.getElementById('new-client-url')?.value || '').trim();
-  if (!urlInput) { toast('Paste a Fireberry URL', 'rd'); return; }
 
-  // Parse URL: https://app.fireberry.com/app/record/TYPE/RECORD_ID
-  const match = urlInput.match(/record\/(\d+)\/([a-f0-9-]{36})/i);
-  if (!match) { toast('Invalid Fireberry URL format', 'rd'); return; }
-  const [, object_type, record_id] = match;
 
-  // Fetch record name first
-  toast('Fetching client info...', 'am');
-  const data = await apiGet(`/api/fireberry?action=record&type=${object_type}&id=${record_id}`);
-  const record = data?.data || {};
-  const label = record.accountname || record.fullname || record.name || 'Client ' + record_id.slice(0,6);
-
-  const result = await apiPost('/api/fireberry?action=clients', {
-    url: urlInput, object_type, record_id, label
-  });
-  if (result.error) { toast(result.error, 'rd'); return; }
-
-  document.getElementById('new-client-url').value = '';
-  toggleDrawer('client');
-  toast('Client added');
-  loadClients();
-}
-
-async function deleteClient(e, id) {
-  e.stopPropagation();
-  showConfirm('Remove this client?', async () => {
-    await apiDelete(`/api/fireberry?action=clients&id=${id}`);
-    toast('Client removed');
-    loadClients();
-  });
-}
-
-async function openClient(recordId, objectType, dbId) {
-  // Switch to detail panel
-  showPanel('client-detail');
-  const el = document.getElementById('client-detail-content');
-  if (!el) return;
-  currentClientId = recordId;
-  el.innerHTML = '<div class="empty-state"><div class="loading-spin"></div> Loading client data...</div>';
-
-  const data = await apiGet(`/api/fireberry?action=client_logs&id=${recordId}&type=${objectType}`);
-  if (!data || data.error) {
-    el.innerHTML = `<div class="empty-state" style="color:var(--rd)">${data?.error || 'Error loading client'}</div>`;
-    return;
-  }
-
-  const r   = data.record;
-  const logs = data.logs;
-  const isAccount = data.is_account || objectType === '1';
-
-  // Known fields mapping
-  const fields = [
-    { label: 'Name',         value: r.accountname || r.fullname || r.name || '—' },
-    { label: 'Email',        value: r.emailaddress1 || r.email || r.internalemailaddress || '—' },
-    { label: 'Phone',        value: r.telephone1 || r.mobilephone || r.phone || '—' },
-    { label: 'Advisor',      value: r.pcfsystemfield3719 || r.owneridname || '—' },
-    { label: 'Package',      value: r.pcfsystemfield3858name || '—' },
-    { label: 'Total Investment', value: r.pcfsystemfield3070 ? '$' + Number(r.pcfsystemfield3070).toLocaleString() : '—' },
-    { label: 'Status',       value: r.statuscodename || r.statuscode || '—' },
-    { label: 'Created',      value: r.createdon ? new Date(r.createdon).toLocaleDateString() : '—' },
-  ].filter(f => f.value && f.value !== '—');
-
-  const profileName = r.accountname || r.fullname || r.name || 'Client';
-  const badge = isAccount
-    ? `<div class="account-badge"><svg viewBox="0 0 24 24" fill="#FBB040" stroke="none" width="14" height="14"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ACCOUNT</div>`
-    : `<div class="lead-badge">&#9679; LEAD</div>`;
-
-  // Build log tabs
-  const logEntries = Object.entries(logs).filter(([,v]) => v.items.length > 0);
-  const tabsHtml = logEntries.map(([key, v], i) =>
-    `<button class="log-tab ${i===0?'active':''}" onclick="switchLogTab('${key}')" id="logtab-${key}">
-      ${v.label}<span class="log-count">${v.items.length}</span>
-    </button>`).join('');
-
-  const panesHtml = logEntries.map(([key, v], i) =>
-    `<div class="log-pane ${i===0?'active':''}" id="logpane-${key}">
-      ${v.items.map(item => renderLogItem(key, item)).join('')}
-    </div>`).join('');
-
-  el.innerHTML = `
-    <div class="client-profile">
-      <div class="client-profile-top">
-        <div class="client-avatar-lg">${ini(profileName)}</div>
-        <div style="flex:1">
-          ${badge}
-          <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--t1);margin-bottom:4px">${esc(profileName)}</div>
-          <div style="font-size:12px;color:var(--t2)">Object type: ${objectType} &middot; ID: ${recordId.slice(0,8)}...</div>
-        </div>
-      </div>
-      <div class="client-fields">
-        ${fields.map(f => `<div class="client-field"><div class="client-field-label">${f.label}</div><div class="client-field-value">${esc(String(f.value))}</div></div>`).join('')}
-      </div>
-    </div>
-    ${logEntries.length ? `
-    <div class="card">
-      <div style="padding:14px 16px;border-bottom:1px solid var(--b1)">
-        <div class="sh-title" style="margin-bottom:10px">Activity & Logs</div>
-        <div class="log-tabs">${tabsHtml}</div>
-      </div>
-      <div>${panesHtml}</div>
-    </div>` : '<div class="empty-state">No activity logs found for this client.</div>'}
-  `;
-}
 
 function renderLogItem(type, item) {
   const date = item.createdon ? new Date(item.createdon).toLocaleDateString() : '';
@@ -1846,6 +1764,437 @@ function switchLogTab(key) {
   if (tab)  tab.classList.add('active');
   if (pane) pane.classList.add('active');
 }
+
+
+// ════════════════════════════════════════════════════════════
+//  CLIENTS MODULE
+// ════════════════════════════════════════════════════════════
+
+let clientsLeads    = [];
+let clientsAccounts = [];
+let clientTab       = 'leads';
+let agentsForFilter = [];  // cached agents for filter dropdown
+
+// ── Init panel: load agents for dropdown ──────────────────────
+async function initClientsPanel() {
+  // Load agents into dropdown if not already loaded
+  if (agentsForFilter.length === 0) {
+    await loadAgentsForFilter();
+  }
+}
+
+async function loadAgentsForFilter() {
+  const sel = document.getElementById('cf-agent');
+  if (!sel) return;
+  try {
+    const data = await apiPost('/api/fireberry?action=query', {
+      objecttype: 9,
+      query: "(statuscode = 1)",
+      pageSize: 200, page: 1,
+      sortby: 'fullname', sorttype: 'ASC'
+    });
+    agentsForFilter = data?.data?.Data || [];
+    sel.innerHTML = '<option value="">All Agents</option>' +
+      agentsForFilter.map(a =>
+        `<option value="${esc(a.crmuserid || a.ownerid)}">${esc(a.fullname)}</option>`
+      ).join('');
+  } catch(e) {
+    console.error('Failed to load agents for filter:', e);
+  }
+}
+
+// ── Build query from active filters ───────────────────────────
+function buildClientQuery() {
+  const brand  = document.getElementById('cf-brand')?.value;
+  const branch = document.getElementById('cf-branch')?.value;
+  const agent  = document.getElementById('cf-agent')?.value;
+  const parts  = [];
+
+  // Brand: pcfsystemfield733
+  if (brand)  parts.push(`(pcfsystemfield733 = '${brand}')`);
+  // Branch: pcfsystemfield3861
+  if (branch) parts.push(`(pcfsystemfield3861 = '${branch}')`);
+  // Agent: pcfsystemfield655 (ownerid in leads)
+  if (agent)  parts.push(`(pcfsystemfield655 = '${agent}')`);
+
+  return parts.join(' AND ') || null;
+}
+
+// ── Update active filter chips ─────────────────────────────────
+function updateFilterChips() {
+  const brand  = document.getElementById('cf-brand');
+  const branch = document.getElementById('cf-branch');
+  const agent  = document.getElementById('cf-agent');
+  const box    = document.getElementById('cf-active-filters');
+  if (!box) return;
+
+  const chips = [];
+  if (brand?.value)  chips.push(`<span class="chip c-pu">${brand.options[brand.selectedIndex].text} <button onclick="clearFilter('cf-brand')" style="background:none;border:none;cursor:pointer;color:inherit;padding:0 0 0 4px">&#10005;</button></span>`);
+  if (branch?.value) chips.push(`<span class="chip c-cy">${branch.options[branch.selectedIndex].text} <button onclick="clearFilter('cf-branch')" style="background:none;border:none;cursor:pointer;color:inherit;padding:0 0 0 4px">&#10005;</button></span>`);
+  if (agent?.value)  chips.push(`<span class="chip c-bl">${agent.options[agent.selectedIndex].text} <button onclick="clearFilter('cf-agent')" style="background:none;border:none;cursor:pointer;color:inherit;padding:0 0 0 4px">&#10005;</button></span>`);
+  box.innerHTML = chips.join('');
+}
+
+function clearFilter(id) {
+  const el = document.getElementById(id);
+  if (el) el.value = '';
+  updateFilterChips();
+}
+
+function onClientFilterChange() {
+  updateFilterChips();
+}
+
+// ── Main search ────────────────────────────────────────────────
+async function searchClients() {
+  const query = buildClientQuery();
+  updateFilterChips();
+
+  // Show loading
+  document.getElementById('clients-leads-list').innerHTML    = '<div class="empty-state"><div class="loading-spin"></div> Loading leads...</div>';
+  document.getElementById('clients-accounts-list').innerHTML = '<div class="empty-state"><div class="loading-spin"></div> Loading accounts...</div>';
+
+  // Fetch leads (obj 3) and accounts (obj 1) in parallel
+  const [leadsData, accountsData] = await Promise.all([
+    apiPost('/api/fireberry?action=query', {
+      objecttype: 3,
+      query:      query,
+      pageSize:   100, page: 1,
+      sortby:     'createdon', sorttype: 'DESC'
+    }),
+    apiPost('/api/fireberry?action=query', {
+      objecttype: 1,
+      query:      query,
+      pageSize:   100, page: 1,
+      sortby:     'createdon', sorttype: 'DESC'
+    })
+  ]);
+
+  clientsLeads    = leadsData?.data?.Data    || [];
+  clientsAccounts = accountsData?.data?.Data || [];
+
+  // Update tab counts
+  document.getElementById('ctab-leads-count').textContent    = clientsLeads.length;
+  document.getElementById('ctab-accounts-count').textContent = clientsAccounts.length;
+
+  renderClientsList();
+}
+
+// ── Render current tab ─────────────────────────────────────────
+function renderClientsList() {
+  renderLeadsList();
+  renderAccountsList();
+}
+
+function renderLeadsList() {
+  const el = document.getElementById('clients-leads-list');
+  if (!el) return;
+  if (!clientsLeads.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-ico">&#128269;</div>No leads found for the selected filters.</div>';
+    return;
+  }
+  el.innerHTML = clientsLeads.map(l => clientLeadRow(l)).join('');
+}
+
+function renderAccountsList() {
+  const el = document.getElementById('clients-accounts-list');
+  if (!el) return;
+  if (!clientsAccounts.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-ico">&#129351;</div>No accounts found for the selected filters.</div>';
+    return;
+  }
+  el.innerHTML = clientsAccounts.map(a => clientAccountRow(a)).join('');
+}
+
+// ── Lead row ───────────────────────────────────────────────────
+function clientLeadRow(l) {
+  const name    = (l.fullname || l.firstname || '—').trim();
+  const email   = l.emailaddress1 || '';
+  const phone   = l.telephone1   || '';
+  const status  = l.status       || '';
+  const country = l.systemfield32name || '';
+  const lang    = l.pcfsystemfield1439name || '';
+  const agent   = l.pcfsystemfield655name  || l.ownername || '';
+  const created = l.createdon ? new Date(l.createdon).toLocaleDateString() : '';
+  const lid     = l.leadid || '';
+
+  const statusColor = {
+    'New':          'c-gn',
+    'Call Back':    'c-bl',
+    'Call Back AC': 'c-bl',
+    'No Answer':    'c-am',
+    'Not Interested':'c-pu',
+    'No Money':     'c-rd',
+    'Duplicate':    'c-rd',
+  }[status] || 'c-cy';
+
+  return `<div class="li">
+    <div class="ih nc" onclick="openClientDetail('${esc(lid)}','3')">
+      <div class="av" style="background:var(--gnb);color:var(--gn);border-color:rgba(52,211,153,.2)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      </div>
+      <div class="ii">
+        <div class="iname">${esc(name)}</div>
+        <div class="imeta">
+          ${email ? `<span class="isub">&#9993; ${esc(email)}</span>` : ''}
+          ${phone ? `<span class="isub">&#128222; ${esc(phone)}</span>` : ''}
+          ${country ? `<span class="chip c-am">${esc(country)}</span>` : ''}
+          ${lang ? `<span class="chip c-cy">${esc(lang)}</span>` : ''}
+        </div>
+        <div class="imeta" style="margin-top:3px">
+          ${agent ? `<span class="isub">&#128100; ${esc(agent)}</span>` : ''}
+          ${created ? `<span class="isub">&#128197; ${created}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        <span class="lead-badge">&#9679; LEAD</span>
+        <span class="chip ${statusColor}">${esc(status)}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Account row ────────────────────────────────────────────────
+function clientAccountRow(a) {
+  const name    = (a.accountname || a.fullname || '—').trim();
+  const email   = a.emailaddress1 || a.email || '';
+  const phone   = a.telephone1 || a.mobilephone || '';
+  const advisor = a.pcfsystemfield3719 || a.owneridname || '';
+  const pkg     = a.pcfsystemfield3858name || '';
+  const invest  = a.pcfsystemfield3070 ? '$' + Number(a.pcfsystemfield3070).toLocaleString() : '';
+  const created = a.createdon ? new Date(a.createdon).toLocaleDateString() : '';
+  const aid     = a.accountid || a.id || '';
+
+  return `<div class="li">
+    <div class="ih nc" onclick="openClientDetail('${esc(aid)}','1')">
+      <div class="av" style="background:rgba(251,176,64,.15);color:#FBB040;border-color:rgba(251,176,64,.3)">
+        <svg viewBox="0 0 24 24" fill="#FBB040" stroke="none" width="14" height="14"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      </div>
+      <div class="ii">
+        <div class="iname">${esc(name)}</div>
+        <div class="imeta">
+          ${email ? `<span class="isub">&#9993; ${esc(email)}</span>` : ''}
+          ${phone ? `<span class="isub">&#128222; ${esc(phone)}</span>` : ''}
+          ${pkg   ? `<span class="chip c-pu">${esc(pkg)}</span>`   : ''}
+          ${invest? `<span class="chip c-gn">${invest}</span>`     : ''}
+        </div>
+        <div class="imeta" style="margin-top:3px">
+          ${advisor ? `<span class="isub">&#128100; ${esc(advisor)}</span>` : ''}
+          ${created ? `<span class="isub">&#128197; ${created}</span>`      : ''}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+        <span class="account-badge"><svg viewBox="0 0 24 24" fill="#FBB040" stroke="none" width="11" height="11"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ACCOUNT</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Tab switcher ───────────────────────────────────────────────
+function switchClientTab(tab) {
+  clientTab = tab;
+  const leadsPane    = document.getElementById('clients-leads-pane');
+  const accountsPane = document.getElementById('clients-accounts-pane');
+  const leadsTab     = document.getElementById('ctab-leads');
+  const accountsTab  = document.getElementById('ctab-accounts');
+
+  if (tab === 'leads') {
+    if (leadsPane)    leadsPane.style.display    = 'block';
+    if (accountsPane) accountsPane.style.display = 'none';
+    if (leadsTab)     { leadsTab.style.color = 'var(--ac)'; leadsTab.style.borderBottom = '2px solid var(--ac)'; }
+    if (accountsTab)  { accountsTab.style.color = 'var(--t2)'; accountsTab.style.borderBottom = '2px solid transparent'; }
+    // update count badge colors
+    const lc = document.getElementById('ctab-leads-count');
+    const ac = document.getElementById('ctab-accounts-count');
+    if (lc) { lc.style.background = 'var(--acg)'; lc.style.color = 'var(--ac)'; }
+    if (ac) { ac.style.background = 'var(--s3)';  ac.style.color = 'var(--t2)'; }
+  } else {
+    if (leadsPane)    leadsPane.style.display    = 'none';
+    if (accountsPane) accountsPane.style.display = 'block';
+    if (leadsTab)     { leadsTab.style.color = 'var(--t2)'; leadsTab.style.borderBottom = '2px solid transparent'; }
+    if (accountsTab)  { accountsTab.style.color = 'var(--am)'; accountsTab.style.borderBottom = '2px solid var(--am)'; }
+    if (lc) { lc.style.background = 'var(--s3)';  lc.style.color = 'var(--t2)'; }
+    if (ac) { ac.style.background = 'var(--amb)'; ac.style.color = 'var(--am)'; }
+  }
+}
+
+// ── Open client detail ─────────────────────────────────────────
+function openClientDetail(id, type) {
+  showPanel('client-detail');
+  const el = document.getElementById('client-detail-content');
+  if (!el) return;
+  el.innerHTML = '<div class="empty-state"><div class="loading-spin"></div> Loading client data...</div>';
+
+  apiGet(`/api/fireberry?action=client_logs&id=${id}&type=${type}`)
+    .then(data => {
+      if (!data || data.error) {
+        el.innerHTML = `<div class="empty-state" style="color:var(--rd)">${data?.error || 'Error loading client'}</div>`;
+        return;
+      }
+      const r = data.record;
+      const logs = data.logs;
+      const isAccount = type === '1';
+
+      const name = (r.accountname || r.fullname || r.firstname || '—').trim();
+      const badge = isAccount
+        ? `<div class="account-badge"><svg viewBox="0 0 24 24" fill="#FBB040" stroke="none" width="14" height="14"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ACCOUNT</div>`
+        : `<div class="lead-badge">&#9679; LEAD</div>`;
+
+      const fields = [
+        { label:'Name',     value: name },
+        { label:'Email',    value: r.emailaddress1 || r.email || '' },
+        { label:'Phone',    value: r.telephone1 || r.mobilephone || '' },
+        { label:'Country',  value: r.systemfield32name || r.billingcountry || '' },
+        { label:'Language', value: r.pcfsystemfield1439name || '' },
+        { label:'Agent',    value: r.pcfsystemfield655name || r.ownername || r.owneridname || '' },
+        { label:'Status',   value: r.status || r.statuscodename || '' },
+        { label:'Source',   value: r.leadsource || '' },
+        { label:'Package',  value: r.pcfsystemfield3858name || '' },
+        { label:'Investment', value: r.pcfsystemfield3070 ? '$'+Number(r.pcfsystemfield3070).toLocaleString() : '' },
+        { label:'Created',  value: r.createdon ? new Date(r.createdon).toLocaleDateString() : '' },
+      ].filter(f => f.value);
+
+      const logEntries = Object.entries(logs || {}).filter(([,v]) => v.items && v.items.length > 0);
+
+      const tabsHtml = logEntries.map(([key, v], i) =>
+        `<button class="log-tab ${i===0?'active':''}" onclick="switchLogTab('${key}')" id="logtab-${key}">
+          ${v.label}<span class="log-count">${v.items.length}</span>
+        </button>`).join('');
+
+      const panesHtml = logEntries.map(([key, v], i) =>
+        `<div class="log-pane ${i===0?'active':''}" id="logpane-${key}">
+          ${v.items.map(item => renderLogItem(key, item)).join('')}
+        </div>`).join('');
+
+      el.innerHTML = `
+        <div class="client-profile">
+          <div class="client-profile-top">
+            <div class="client-avatar-lg">${ini(name)}</div>
+            <div style="flex:1">
+              ${badge}
+              <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--t1);margin-bottom:4px">${esc(name)}</div>
+              <div style="font-size:12px;color:var(--t2)">Type ${type} &middot; ID: ${id.slice(0,8)}...</div>
+            </div>
+          </div>
+          <div class="client-fields">
+            ${fields.map(f => `<div class="client-field"><div class="client-field-label">${f.label}</div><div class="client-field-value">${esc(String(f.value))}</div></div>`).join('')}
+          </div>
+        </div>
+        ${logEntries.length ? `
+        <div class="card">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--b1)">
+            <div class="sh-title" style="margin-bottom:10px">Activity & Logs</div>
+            <div class="log-tabs">${tabsHtml}</div>
+          </div>
+          <div>${panesHtml}</div>
+        </div>` : '<div class="empty-state">No activity logs found.</div>'}
+      `;
+    });
+}
+
+
+
+// ════════════════════════════════════════════════════════════
+//  AGENT FILTER (Brand / Branch — real-time on loaded agents)
+// ════════════════════════════════════════════════════════════
+
+let agentFilterBrand  = '';
+let agentFilterBranch = '';
+
+function populateAgentFilterDropdowns() {
+  // Pull unique brands and branches from loaded agents array
+  const brands   = [...new Set(agents.map(a => a.brand).filter(Boolean))].sort();
+  const branches = [...new Set(agents.map(a => a.branch).filter(Boolean))].sort();
+
+  const brandSel  = document.getElementById('af-brand');
+  const branchSel = document.getElementById('af-branch');
+  if (!brandSel || !branchSel) return;
+
+  const curBrand  = brandSel.value;
+  const curBranch = branchSel.value;
+
+  brandSel.innerHTML  = '<option value="">All Brands</option>'  + brands.map(b  => `<option value="${esc(b)}" ${b===curBrand?'selected':''}>${esc(b)}</option>`).join('');
+  branchSel.innerHTML = '<option value="">All Branches</option>'+ branches.map(b => `<option value="${esc(b)}" ${b===curBranch?'selected':''}>${esc(b)}</option>`).join('');
+}
+
+function filterAgentsByBrandBranch() {
+  agentFilterBrand  = document.getElementById('af-brand')?.value  || '';
+  agentFilterBranch = document.getElementById('af-branch')?.value || '';
+  renderAgents();
+}
+
+function clearAgentFilters() {
+  agentFilterBrand = agentFilterBranch = '';
+  const bd = document.getElementById('af-brand');
+  const br = document.getElementById('af-branch');
+  if (bd) bd.value = '';
+  if (br) br.value = '';
+  renderAgents();
+}
+
+// ── Patch renderAgents to apply brand/branch filter ───────────
+const _baseRenderAgents = renderAgents;
+renderAgents = function() {
+  // Temporarily filter agents array based on brand/branch selectors
+  const _orig = agents;
+  if (agentFilterBrand || agentFilterBranch) {
+    agents = _orig.filter(a => {
+      const matchBrand  = !agentFilterBrand  || a.brand  === agentFilterBrand;
+      const matchBranch = !agentFilterBranch || a.branch === agentFilterBranch;
+      return matchBrand && matchBranch;
+    });
+    // Show result count
+    const res = document.getElementById('af-results');
+    if (res) res.textContent = agents.length + ' agent' + (agents.length !== 1 ? 's' : '') + ' shown';
+  } else {
+    const res = document.getElementById('af-results');
+    if (res) res.textContent = '';
+  }
+  _baseRenderAgents();
+  agents = _orig;  // restore
+  // Populate dropdowns with all available options
+  populateAgentFilterDropdowns();
+};
+
+// ════════════════════════════════════════════════════════════
+//  CLIENTS AGENT DROPDOWN — filtered by Brand + Branch
+// ════════════════════════════════════════════════════════════
+
+async function updateClientAgentDropdown() {
+  const brand  = document.getElementById('cf-brand')?.value;
+  const branch = document.getElementById('cf-branch')?.value;
+  const sel    = document.getElementById('cf-agent');
+  if (!sel) return;
+
+  // Build query for agents
+  const parts = ['(statuscode = 1)'];
+  // Map brand select value to pcfsystemfield774 value
+  if (brand)  parts.push(`(pcfsystemfield774 = '${brand}')`);
+  // Map branch select value to systemfield425 value  
+  if (branch) parts.push(`(systemfield425 = '${branch}')`);
+
+  sel.innerHTML = '<option value="">Loading agents...</option>';
+  sel.disabled  = true;
+
+  try {
+    const data = await apiPost('/api/fireberry?action=query', {
+      objecttype: 9,
+      query:      parts.join(' AND '),
+      pageSize:   200, page: 1,
+      sortby:     'fullname', sorttype: 'ASC'
+    });
+    const agts = data?.data?.Data || [];
+    sel.innerHTML = `<option value="">All Agents (${agts.length})</option>` +
+      agts.map(a => `<option value="${esc(a.crmuserid||a.ownerid)}">${esc(a.fullname)}</option>`).join('');
+    sel.disabled = false;
+    // Cache for filter module too
+    agentsForFilter = agts;
+  } catch(e) {
+    sel.innerHTML = '<option value="">All Agents</option>';
+    sel.disabled  = false;
+  }
+}
+
 </script>
 </body>
 </html>
