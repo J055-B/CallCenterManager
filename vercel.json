@@ -5,13 +5,8 @@
     { "src": "public/**", "use": "@vercel/static" }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1.js" },
+    { "src": "/api/auth", "dest": "/api/auth.js" },
+    { "src": "/api/fireberry", "dest": "/api/fireberry.js" },
     { "src": "/(.*)", "dest": "/public/index.html" }
-  ],
-  "env": {
-    "FIREBERRY_TOKEN": "@fireberry_token",
-    "FIREBERRY_ORG": "@fireberry_org",
-    "DATABASE_URL": "@database_url",
-    "JWT_SECRET": "@jwt_secret"
-  }
+  ]
 }
