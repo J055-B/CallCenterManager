@@ -62,6 +62,21 @@ async function fbQuery(body) {
   return r.json();
 }
 
+// Fetch ALL pages of a query (Fireberry max pageSize is 25)
+async function fbQueryAll(body) {
+  let page = 1;
+  let allData = [];
+  while (true) {
+    const data = await fbQuery({ ...body, page, pageSize: 25 });
+    const records = data?.data?.Data || data?.Data || [];
+    allData = allData.concat(records);
+    if (data?.data?.IsLastPage !== false || records.length === 0) break;
+    page++;
+    if (page > 40) break; // safety limit: max 1000 records
+  }
+  return allData;
+}
+
 // ── Main handler ──────────────────────────────
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -137,6 +152,12 @@ module.exports = async (req, res) => {
     if (action === 'query' && req.method === 'POST') {
       const body = { ...req.body };
       if (!body.query) delete body.query;
+      // If getAllPages=true, paginate through all results
+      if (body.getAllPages) {
+        delete body.getAllPages;
+        const allData = await fbQueryAll(body);
+        return res.json({ data: { Data: allData, IsLastPage: true }, success: true });
+      }
       const data = await fbQuery(body);
       return res.json(data);
     }
@@ -156,8 +177,7 @@ module.exports = async (req, res) => {
         sortby: 'fullname', sorttype: 'ASC'
       };
 
-      const data = await fbQuery(body);
-      const agents = data?.data?.Data || data?.Data || [];
+      const agents = await fbQueryAll(body);
 
       // Map to clean agent objects using known field names
       // Map Microsoft language codes to names
