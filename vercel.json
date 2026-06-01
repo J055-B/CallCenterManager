@@ -1,17 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/*.js", "use": "@vercel/node" },
-    { "src": "public/**", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1.js" },
-    { "src": "/(.*)", "dest": "/public/index.html" }
-  ],
-  "env": {
-    "FIREBERRY_TOKEN": "@fireberry_token",
-    "FIREBERRY_ORG": "@fireberry_org",
-    "DATABASE_URL": "@database_url",
-    "JWT_SECRET": "@jwt_secret"
-  }
+  "rewrites": [
+    { "source": "/api/auth", "destination": "/api/auth.js" },
+    { "source": "/api/fireberry", "destination": "/api/fireberry.js" },
+    { "source": "/(.*)", "destination": "/public/index.html" }
+  ]
 }
