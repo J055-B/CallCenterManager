@@ -60,100 +60,11 @@ async function doServerLogin(username, password) {
 }
 
 // ── TEAMS ────────────────────────────────────────────────────
-let teams = [];
-let teamsAgentCache = {};
 
-async function loadTeams() {
-  const el = document.getElementById('teams-container');
-  if (!el) return;
-  el.innerHTML = '<div class="empty-state"><div class="loading-spin"></div></div>';
-  const data = await apiGet('/api/fireberry?action=teams');
-  teams = Array.isArray(data) ? data : [];
-  renderTeams();
-}
 
-function renderTeams() {
-  const el = document.getElementById('teams-container');
-  if (!el) return;
-  if (!teams.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-ico">&#128101;</div>No teams added yet. Add a Business Unit ID to get started.</div>';
-    return;
-  }
-  el.innerHTML = teams.map(t => `
-    <div class="team-card">
-      <div class="team-card-hdr">
-        <div style="width:28px;height:28px;border-radius:var(--rs);background:var(--acg);border:1px solid rgba(79,127,255,.3);display:flex;align-items:center;justify-content:center;color:var(--ac)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <span class="team-card-name">${esc(t.name)}</span>
-        <span class="chip c-bl" style="font-size:9px">${esc(t.business_unit_id.slice(0,8))}...</span>
-        <button class="btn btn-sm admin-only" onclick="loadTeamAgents('${esc(t.business_unit_id)}','${esc(t.id)}')">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Refresh
-        </button>
-        <button class="btn btn-sm btn-r admin-only" onclick="deleteTeam(${t.id})">&#10005;</button>
-      </div>
-      <div id="team-agents-${t.id}">
-        <div class="empty-state" style="padding:16px">Click Refresh to load agents</div>
-      </div>
-    </div>`).join('');
-}
 
-async function loadTeamAgents(buId, teamId) {
-  const el = document.getElementById('team-agents-' + teamId);
-  if (!el) return;
-  el.innerHTML = '<div class="empty-state" style="padding:16px"><div class="loading-spin"></div> Loading agents...</div>';
-  const data = await apiGet(`/api/fireberry?action=team_agents&bu_id=${buId}`);
-  if (!data || data.error) {
-    el.innerHTML = `<div class="empty-state" style="padding:16px;color:var(--rd)">${data?.error || 'Error loading agents'}</div>`;
-    return;
-  }
-  const agents = data.agents || [];
-  teamsAgentCache[teamId] = agents;
-  if (!agents.length) {
-    el.innerHTML = '<div class="empty-state" style="padding:16px">No active agents found in this team</div>';
-    return;
-  }
-  el.innerHTML = agents.map(a => `
-    <div class="team-agent-row">
-      <div class="agent-av">${ini(a.name)}</div>
-      <div class="agent-info">
-        <div class="agent-name">${esc(a.name)}</div>
-        <div class="agent-meta">
-          ${a.email ? `<span style="color:var(--ac)">${esc(a.email)}</span> &middot; ` : ''}
-          ${a.dept ? esc(a.dept) + ' &middot; ' : ''}
-          ${a.branch ? '&#128205; ' + esc(a.branch) : ''}
-          ${a.position ? ' &middot; ' + esc(a.position) : ''}
-        </div>
-      </div>
-      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
-        ${a.lang ? `<span class="chip c-cy">${esc(a.lang)}</span>` : ''}
-        ${a.brand ? `<span class="chip c-pu">${esc(a.brand)}</span>` : ''}
-        <span class="badge b-on">Active</span>
-      </div>
-    </div>`).join('');
-}
 
-async function addTeam() {
-  const name  = (document.getElementById('new-team-name')?.value  || '').trim();
-  const bu_id = (document.getElementById('new-team-buid')?.value  || '').trim();
-  if (!name || !bu_id) { toast('Team name and Business Unit ID are required', 'rd'); return; }
-  const data = await apiPost('/api/fireberry?action=teams', { name, business_unit_id: bu_id });
-  if (data.error) { toast(data.error, 'rd'); return; }
-  document.getElementById('new-team-name').value = '';
-  document.getElementById('new-team-buid').value = '';
-  toggleDrawer('team');
-  toast('Team added');
-  loadTeams();
-}
 
-async function deleteTeam(id) {
-  showConfirm('Remove this team?', async () => {
-    await apiDelete(`/api/fireberry?action=teams&id=${id}`);
-    toast('Team removed');
-    loadTeams();
-  });
-}
 
 // ── CLIENTS ──────────────────────────────────────────────────
 let clients = [];
@@ -227,8 +138,9 @@ async function loadBrandsAndBrands() {
     const data = await apiPost('/api/fireberry?action=query', {
       objecttype: 9,
       query: "(statuscode = 1)",
-      pageSize: 200, page: 1,
-      sortby: 'fullname', sorttype: 'ASC'
+      pageSize: 25, page: 1,
+      sortby: 'fullname', sorttype: 'ASC',
+      getAllPages: true
     });
     agentsForFilter = data?.data?.Data || [];
 
@@ -287,8 +199,8 @@ function buildClientQuery() {
   if (agent)  accountParts.push(`(ownerid = '${agent}')`);
 
   return {
-    leadQuery:    leadParts.join(' AND ')    || null,
-    accountQuery: accountParts.join(' AND ') || null
+    leadQuery:    leadParts.length    ? leadParts.join(' AND ')    : null,
+    accountQuery: accountParts.length ? accountParts.join(' AND ') : null
   };
 }
 
@@ -321,12 +233,6 @@ function onClientFilterChange() {
 async function searchClients() {
   const { leadQuery, accountQuery } = buildClientQuery();
   updateFilterChips();
-
-  // Require at least one filter
-  if (!leadQuery && !accountQuery) {
-    toast('Select at least one filter before searching', 'am');
-    return;
-  }
 
   // Show loading
   document.getElementById('clients-leads-list').innerHTML    = '<div class="empty-state"><div class="loading-spin"></div> Loading leads...</div>';

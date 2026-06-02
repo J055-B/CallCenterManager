@@ -1,51 +1,35 @@
 // ─────────────────────────────────────────────
 //  JMB Manager — Fireberry Proxy API
 //
-//  ⚙️  CONFIGURATION
-//  Set these in Vercel Environment Variables:
+//  ⚙️  CONFIGURATION — set in Vercel Environment Variables:
 //    FIREBERRY_TOKEN  = your tokenid
 //    FIREBERRY_ORG    = your organization id
-//
-//  All routes require Bearer JWT token in Authorization header
-//
-//  GET  /api/fireberry?action=record&type=1&id=xxx
-//  GET  /api/fireberry?action=client_logs&id=xxx&type=1
-//  POST /api/fireberry?action=query   (body = Powerlink query)
-//  GET  /api/fireberry?action=team_agents&bu_id=xxx
-//  GET  /api/fireberry?action=teams
-//  POST /api/fireberry?action=teams   (add team)
-//  DELETE /api/fireberry?action=teams&id=xxx
+//    DATABASE_URL     = Neon PostgreSQL connection string
+//    JWT_SECRET       = any secret string
 // ─────────────────────────────────────────────
 const fetch  = require('node-fetch');
 const jwt    = require('jsonwebtoken');
 const { Pool } = require('pg');
 
-// ── ⚙️  API CONFIGURATION ────────────────────
-// Change these values or set as Vercel env vars
+// ── ⚙️  CONFIG ────────────────────────────────
 const FIREBERRY_API   = 'https://api.powerlink.co.il/api';
 const FIREBERRY_TOKEN = process.env.FIREBERRY_TOKEN || '4863e71d-5503-47b3-8745-5217fe928861';
-const FIREBERRY_ORG   = process.env.FIREBERRY_ORG   || 'cfa8e794-71fe-4f08-ac54-4a9209e8b37a';
-const JWT_SECRET      = process.env.JWT_SECRET       || 'jmb-secret-2025';
+const JWT_SECRET      = process.env.JWT_SECRET      || 'jmb-secret-2025';
 
-// ── Known Powerlink object types ─────────────
-// 1  = Account (paying client)
-// 3  = Lead (prospect)
-// 9  = CRM User / Agent
-// 13 = Order / Payment
-
-// ── DB (for teams storage) ───────────────────
+// ── DB ────────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// ── Helpers ───────────────────────────────────
+// ── Auth helper ───────────────────────────────
 function authUser(req) {
   const h = req.headers['authorization'] || '';
   try { return jwt.verify(h.replace('Bearer ', ''), JWT_SECRET); }
   catch { return null; }
 }
 
+// ── Fireberry fetch helpers ───────────────────
 async function fbGet(path) {
   const r = await fetch(`${FIREBERRY_API}${path}`, {
     headers: { 'tokenid': FIREBERRY_TOKEN, 'Content-Type': 'application/json' }
@@ -62,17 +46,20 @@ async function fbQuery(body) {
   return r.json();
 }
 
-// Fetch ALL pages of a query (Fireberry max pageSize is 25)
+// ── Paginate through ALL results (Fireberry max 25/page) ──────
 async function fbQueryAll(body) {
-  let page = 1;
-  let allData = [];
-  while (true) {
-    const data = await fbQuery({ ...body, page, pageSize: 25 });
-    const records = data?.data?.Data || data?.Data || [];
+  let page     = 1;
+  let allData  = [];
+  let isLast   = false;
+
+  while (!isLast) {
+    const res     = await fbQuery({ ...body, page, pageSize: 25 });
+    const records = res?.data?.Data || [];
     allData = allData.concat(records);
-    if (data?.data?.IsLastPage !== false || records.length === 0) break;
+    isLast  = res?.data?.IsLastPage !== false;   // true or undefined = done
+    if (records.length === 0) break;             // safety: no records returned
     page++;
-    if (page > 40) break; // safety limit: max 1000 records
+    if (page > 80) break;                        // hard limit: 2000 records
   }
   return allData;
 }
@@ -91,28 +78,19 @@ module.exports = async (req, res) => {
 
   try {
 
-    // ── GET SINGLE RECORD ──────────────────────
-    // Fetch any Fireberry record by objectType + id
-    // e.g. type=1 (Account), type=3 (Lead), type=9 (Agent)
+    // ── GET SINGLE RECORD ─────────────────────
     if (action === 'record') {
       const { type, id } = req.query;
       const data = await fbGet(`/record/${type}/${id}`);
       return res.json(data);
     }
 
-    // ── GET CLIENT FULL PROFILE ────────────────
-    // Fetches record + all related logs in parallel
-    // type=1 → Account (gold trophy badge)
-    // type=3 → Lead
+    // ── CLIENT FULL PROFILE + LOGS ────────────
     if (action === 'client_logs') {
       const { id, type } = req.query;
-
-      // Fetch main record
       const recordData = await fbGet(`/record/${type}/${id}`);
-      const record = recordData?.data || {};
+      const record     = recordData?.data || {};
 
-      // Log object types to check for this client
-      // These are the sub-objects visible in Fireberry UI
       const LOG_TYPES = [
         { key: 'orders',       objecttype: 13, label: 'Orders / Payments' },
         { key: 'account_log',  objecttype: 17, label: 'Account Log'       },
@@ -125,95 +103,46 @@ module.exports = async (req, res) => {
         { key: 'qa',           objecttype: 21, label: 'QA'                },
       ];
 
-      // Query all log types in parallel
       const logResults = await Promise.all(
         LOG_TYPES.map(async lt => {
           const body = {
             objecttype: lt.objecttype,
             query: `(accountid = '${id}') OR (regardingobjectid = '${id}')`,
-            pageSize: 50, page: 1,
+            pageSize: 25, page: 1,
             sortby: 'createdon', sorttype: 'DESC'
           };
-          const data = await fbQuery(body);
-          const items = data?.data?.Data || data?.Data || [];
+          const data  = await fbQuery(body);
+          const items = data?.data?.Data || [];
           return { key: lt.key, label: lt.label, items };
         })
       );
 
       const logs = {};
       logResults.forEach(r => { logs[r.key] = { label: r.label, items: r.items }; });
-
       return res.json({ record, logs, is_account: type === '1' });
     }
 
-    // ── GENERIC QUERY ──────────────────────────
-    // Pass any Powerlink query body directly
-    // If query is null/empty, omit it (returns all records)
+    // ── GENERIC QUERY (with optional pagination) ──
     if (action === 'query' && req.method === 'POST') {
       const body = { ...req.body };
       if (!body.query) delete body.query;
-      // If getAllPages=true, paginate through all results
+
       if (body.getAllPages) {
         delete body.getAllPages;
         const allData = await fbQueryAll(body);
         return res.json({ data: { Data: allData, IsLastPage: true }, success: true });
       }
+
       const data = await fbQuery(body);
       return res.json(data);
     }
 
-    // ── TEAM AGENTS (by Business Unit ID) ─────
-    // Fetches all ACTIVE agents in a Fireberry Business Unit
-    // Pass bu_id = the Business Unit GUID from Fireberry URL
-    if (action === 'team_agents') {
-      const { bu_id } = req.query;
-      if (!bu_id) return res.status(400).json({ error: 'bu_id required' });
-
-      const body = {
-        objecttype: 9,
-        // Filter by business unit and active status
-        query: `(businessunitid = '${bu_id}') AND (statuscode = 1)`,
-        pageSize: 100, page: 1,
-        sortby: 'fullname', sorttype: 'ASC'
-      };
-
-      const agents = await fbQueryAll(body);
-
-      // Map to clean agent objects using known field names
-      // Map Microsoft language codes to names
-      const LANG_CODES = {
-        1033: 'English', 1034: 'Spanish', 3082: 'Spanish',
-        1036: 'French',  1037: 'Hebrew',  1046: 'Portuguese',
-        1049: 'Russian', 2052: 'Chinese', 1041: 'Japanese',
-        1031: 'German',  1040: 'Italian', 1043: 'Dutch',
-      };
-
-      const mapped = agents.map(a => ({
-        id:       a.systemuserid || a.id,
-        name:     a.fullname     || a.owneridname || a.ownerid,
-        email:    a.internalemailaddress || a.email || '',
-        title:    a.title        || '',
-        brand:    a.pcfsystemfield_brand || a['businessunitid@odata.bind'] || '',
-        bu_name:  a.businessunitidname  || '',
-        lang:     LANG_CODES[a.languageid] || a.pcfsystemfield_lang || (a.languageid ? String(a.languageid) : ''),
-        active:   a.statuscode === 1 || a.isdisabled === false,
-        raw:      a
-      }));
-
-      return res.json({ agents: mapped, total: mapped.length });
-    }
-
-    // ── TEAMS CRUD ─────────────────────────────
-    // Store/retrieve teams (name + business_unit_id) in DB
+    // ── TEAMS CRUD ────────────────────────────
     if (action === 'teams') {
-
-      // GET — list all teams
       if (req.method === 'GET') {
         const r = await pool.query('SELECT * FROM jmb_teams ORDER BY created_at ASC');
         return res.json(r.rows);
       }
-
-      // POST — add a new team
       if (req.method === 'POST') {
         if (!user.is_admin) return res.status(403).json({ error: 'Admin only' });
         const { name, business_unit_id } = req.body;
@@ -224,19 +153,15 @@ module.exports = async (req, res) => {
         );
         return res.json(r.rows[0]);
       }
-
-      // DELETE — remove a team
       if (req.method === 'DELETE') {
         if (!user.is_admin) return res.status(403).json({ error: 'Admin only' });
-        const { id } = req.query;
-        await pool.query('DELETE FROM jmb_teams WHERE id=$1', [id]);
+        await pool.query('DELETE FROM jmb_teams WHERE id=$1', [req.query.id]);
         return res.json({ ok: true });
       }
     }
 
-    // ── CLIENTS CRUD ───────────────────────────
+    // ── CLIENTS CRUD ──────────────────────────
     if (action === 'clients') {
-
       if (req.method === 'GET') {
         const r = await pool.query(
           'SELECT * FROM jmb_clients WHERE agent_id=$1 ORDER BY created_at DESC',
@@ -244,7 +169,6 @@ module.exports = async (req, res) => {
         );
         return res.json(r.rows);
       }
-
       if (req.method === 'POST') {
         const { url, object_type, record_id, label } = req.body;
         try {
@@ -258,10 +182,8 @@ module.exports = async (req, res) => {
           throw e;
         }
       }
-
       if (req.method === 'DELETE') {
-        const { id } = req.query;
-        await pool.query('DELETE FROM jmb_clients WHERE id=$1 AND agent_id=$2', [id, user.id]);
+        await pool.query('DELETE FROM jmb_clients WHERE id=$1 AND agent_id=$2', [req.query.id, user.id]);
         return res.json({ ok: true });
       }
     }
