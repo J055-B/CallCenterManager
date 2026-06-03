@@ -129,59 +129,50 @@ let agentsForFilter = [];  // cached agents for filter dropdown
 
 // ── Init panel: load agents for dropdown ──────────────────────
 async function initClientsPanel() {
-  await loadBrandsAndBrands();
-}
-
-async function loadBrandsAndBrands() {
-  try {
-    // Load all active agents to extract real brands and branches
-    const data = await apiPost('/api/fireberry?action=query', {
-      objecttype: 9,
-      query: "(statuscode = 1)",
-      pageSize: 25, page: 1,
-      sortby: 'fullname', sorttype: 'ASC',
-      getAllPages: true
-    });
-    agentsForFilter = data?.data?.Data || [];
-
-    // Extract unique brands
-    const brands = {};
-    const branches = {};
-    agentsForFilter.forEach(a => {
-      if (a.pcfsystemfield774 && a.pcfsystemfield774name)
-        brands[a.pcfsystemfield774] = a.pcfsystemfield774name;
-      if (a.systemfield425 && a.systemfield425name)
-        branches[a.systemfield425] = a.systemfield425name;
-    });
-
-    // Populate brand dropdown dynamically
-    const brandSel = document.getElementById('cf-brand');
-    if (brandSel) {
-      brandSel.innerHTML = '<option value="">All Brands</option>' +
-        Object.entries(brands).map(([id, name]) =>
-          `<option value="${esc(id)}">${esc(name)}</option>`
-        ).join('');
-    }
-
-    // Populate branch dropdown dynamically
-    const branchSel = document.getElementById('cf-branch');
-    if (branchSel) {
-      branchSel.innerHTML = '<option value="">All Branches</option>' +
-        Object.entries(branches).map(([id, name]) =>
-          `<option value="${esc(id)}">${esc(name)}</option>`
-        ).join('');
-    }
-
-  } catch(e) {
-    console.error('Failed to load brands/branches:', e);
+  // Use cached agents — no extra API call
+  if (agentsForFilter.length > 0) {
+    populateClientDropdowns();
+  } else {
+    // Agents not loaded yet — wait for loadFireberryAgents to finish
+    setTimeout(initClientsPanel, 500);
   }
 }
 
-async function loadAgentsForFilter() {
-  // kept for compatibility
+function populateClientDropdowns() {
+  const EXCL = [1, '1', 1];
+  const brands = {}, branches = {};
+
+  agentsForFilter.forEach(a => {
+    const bid = String(a.pcfsystemfield774 || '');
+    const bn  = a.pcfsystemfield774name || '';
+    if (bid && bn && !EXCL.includes(a.pcfsystemfield774) && !EXCL.includes(Number(bid)))
+      brands[bid] = bn;
+
+    const rid = String(a.systemfield425 || '');
+    const rn  = a.systemfield425name || '';
+    if (rid && rn) branches[rid] = rn;
+  });
+
+  const brandSel = document.getElementById('cf-brand');
+  if (brandSel) {
+    brandSel.innerHTML = '<option value="">All Brands</option>' +
+      Object.entries(brands).sort((a,b)=>a[1].localeCompare(b[1]))
+        .map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');
+  }
+
+  const branchSel = document.getElementById('cf-branch');
+  if (branchSel) {
+    branchSel.innerHTML = '<option value="">All Branches</option>' +
+      Object.entries(branches).sort((a,b)=>a[1].localeCompare(b[1]))
+        .map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('');
+  }
+
+  const agentSel = document.getElementById('cf-agent');
+  if (agentSel) agentSel.innerHTML = '<option value="">All Agents</option>';
 }
 
-// ── Build query from active filters ───────────────────────────
+
+
 function buildClientQuery() {
   const brand  = document.getElementById('cf-brand')?.value;
   const branch = document.getElementById('cf-branch')?.value;
@@ -566,13 +557,13 @@ renderAgents = function() {
 //  CLIENTS AGENT DROPDOWN — filtered by Brand + Branch
 // ════════════════════════════════════════════════════════════
 
-async function updateClientAgentDropdown() {
+function updateClientAgentDropdown() {
   const brand  = document.getElementById('cf-brand')?.value;
   const branch = document.getElementById('cf-branch')?.value;
   const sel    = document.getElementById('cf-agent');
   if (!sel) return;
 
-  // Filter from cached agents (already loaded)
+  // Filter from cache — no API call
   let filtered = agentsForFilter;
   if (brand)  filtered = filtered.filter(a => String(a.pcfsystemfield774) === String(brand));
   if (branch) filtered = filtered.filter(a => String(a.systemfield425)    === String(branch));

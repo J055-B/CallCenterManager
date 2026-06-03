@@ -1,35 +1,30 @@
 // ─────────────────────────────────────────────
-//  JMB Manager — Fireberry Proxy API
+//  JMB Manager — Fireberry Proxy
 //
-//  ⚙️  CONFIGURATION — set in Vercel Environment Variables:
+//  ⚙️  Set in Vercel Environment Variables:
 //    FIREBERRY_TOKEN  = your tokenid
-//    FIREBERRY_ORG    = your organization id
-//    DATABASE_URL     = Neon PostgreSQL connection string
+//    DATABASE_URL     = Neon PostgreSQL URL
 //    JWT_SECRET       = any secret string
 // ─────────────────────────────────────────────
-const fetch  = require('node-fetch');
-const jwt    = require('jsonwebtoken');
+const fetch = require('node-fetch');
+const jwt   = require('jsonwebtoken');
 const { Pool } = require('pg');
 
-// ── ⚙️  CONFIG ────────────────────────────────
 const FIREBERRY_API   = 'https://api.powerlink.co.il/api';
 const FIREBERRY_TOKEN = process.env.FIREBERRY_TOKEN || '4863e71d-5503-47b3-8745-5217fe928861';
 const JWT_SECRET      = process.env.JWT_SECRET      || 'jmb-secret-2025';
 
-// ── DB ────────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// ── Auth helper ───────────────────────────────
 function authUser(req) {
   const h = req.headers['authorization'] || '';
   try { return jwt.verify(h.replace('Bearer ', ''), JWT_SECRET); }
   catch { return null; }
 }
 
-// ── Fireberry fetch helpers ───────────────────
 async function fbGet(path) {
   const r = await fetch(`${FIREBERRY_API}${path}`, {
     headers: { 'tokenid': FIREBERRY_TOKEN, 'Content-Type': 'application/json' }
@@ -37,7 +32,7 @@ async function fbGet(path) {
   return r.json();
 }
 
-async function fbQuery(body) {
+async function fbPost(body) {
   const r = await fetch(`${FIREBERRY_API}/query`, {
     method: 'POST',
     headers: { 'tokenid': FIREBERRY_TOKEN, 'Content-Type': 'application/json' },
@@ -46,25 +41,19 @@ async function fbQuery(body) {
   return r.json();
 }
 
-// ── Paginate through ALL results (Fireberry max 25/page) ──────
-async function fbQueryAll(body) {
-  let page     = 1;
-  let allData  = [];
-  let isLast   = false;
-
-  while (!isLast) {
-    const res     = await fbQuery({ ...body, page, pageSize: 25 });
-    const records = res?.data?.Data || [];
-    allData = allData.concat(records);
-    isLast  = res?.data?.IsLastPage !== false;   // true or undefined = done
-    if (records.length === 0) break;             // safety: no records returned
+// Paginate — max 10 pages (250 records) to avoid API abuse
+async function fbAll(body) {
+  let page = 1, all = [];
+  while (page <= 10) {
+    const res  = await fbPost({ ...body, page, pageSize: 25 });
+    const data = res?.data?.Data || [];
+    all = all.concat(data);
+    if (res?.data?.IsLastPage !== false || data.length === 0) break;
     page++;
-    if (page > 80) break;                        // hard limit: 2000 records
   }
-  return allData;
+  return all;
 }
 
-// ── Main handler ──────────────────────────────
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
@@ -74,99 +63,57 @@ module.exports = async (req, res) => {
   const user = authUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-  const action = req.query.action;
+  const { action } = req.query;
 
   try {
 
-    // ── GET SINGLE RECORD ─────────────────────
+    // ── Single record + logs ──────────────────
     if (action === 'record') {
-      const { type, id } = req.query;
-      const data = await fbGet(`/record/${type}/${id}`);
+      const data = await fbGet(`/record/${req.query.type}/${req.query.id}`);
       return res.json(data);
     }
 
-    // ── CLIENT FULL PROFILE + LOGS ────────────
     if (action === 'client_logs') {
       const { id, type } = req.query;
-      const recordData = await fbGet(`/record/${type}/${id}`);
-      const record     = recordData?.data || {};
-
+      const rec  = await fbGet(`/record/${type}/${id}`);
       const LOG_TYPES = [
-        { key: 'orders',       objecttype: 13, label: 'Orders / Payments' },
-        { key: 'account_log',  objecttype: 17, label: 'Account Log'       },
-        { key: 'tasks',        objecttype: 6,  label: 'Tasks'             },
-        { key: 'phone_news',   objecttype: 7,  label: 'Phone News'        },
-        { key: 'log_statuses', objecttype: 16, label: 'Log Statuses'      },
-        { key: 'sms',          objecttype: 18, label: 'SMS'               },
-        { key: 'emails',       objecttype: 8,  label: 'Emails'            },
-        { key: 'find_leads',   objecttype: 19, label: 'Find Leads'        },
-        { key: 'qa',           objecttype: 21, label: 'QA'                },
+        { key:'orders',      objecttype:13, label:'Orders'      },
+        { key:'tasks',       objecttype:6,  label:'Tasks'       },
+        { key:'phone_news',  objecttype:7,  label:'Phone News'  },
+        { key:'log_statuses',objecttype:16, label:'Log Statuses'},
+        { key:'sms',         objecttype:18, label:'SMS'         },
+        { key:'emails',      objecttype:8,  label:'Emails'      },
+        { key:'account_log', objecttype:17, label:'Account Log' },
       ];
-
-      const logResults = await Promise.all(
-        LOG_TYPES.map(async lt => {
-          const body = {
-            objecttype: lt.objecttype,
-            query: `(accountid = '${id}') OR (regardingobjectid = '${id}')`,
-            pageSize: 25, page: 1,
-            sortby: 'createdon', sorttype: 'DESC'
-          };
-          const data  = await fbQuery(body);
-          const items = data?.data?.Data || [];
-          return { key: lt.key, label: lt.label, items };
-        })
-      );
-
+      const logResults = await Promise.all(LOG_TYPES.map(async lt => {
+        const d = await fbPost({
+          objecttype: lt.objecttype,
+          query: `(accountid = '${id}') OR (regardingobjectid = '${id}')`,
+          pageSize: 25, page: 1, sortby: 'createdon', sorttype: 'DESC'
+        });
+        return { key: lt.key, label: lt.label, items: d?.data?.Data || [] };
+      }));
       const logs = {};
       logResults.forEach(r => { logs[r.key] = { label: r.label, items: r.items }; });
-      return res.json({ record, logs, is_account: type === '1' });
+      return res.json({ record: rec?.data || {}, logs, is_account: type === '1' });
     }
 
-    // ── GENERIC QUERY (with optional pagination) ──
+    // ── Query (single page or all pages) ─────
     if (action === 'query' && req.method === 'POST') {
       const body = { ...req.body };
       if (!body.query) delete body.query;
-
       if (body.getAllPages) {
         delete body.getAllPages;
-        const allData = await fbQueryAll(body);
-        return res.json({ data: { Data: allData, IsLastPage: true }, success: true });
+        const all = await fbAll(body);
+        return res.json({ data: { Data: all, IsLastPage: true }, success: true });
       }
-
-      const data = await fbQuery(body);
-      return res.json(data);
+      return res.json(await fbPost(body));
     }
 
-    // ── TEAMS CRUD ────────────────────────────
-    if (action === 'teams') {
-      if (req.method === 'GET') {
-        const r = await pool.query('SELECT * FROM jmb_teams ORDER BY created_at ASC');
-        return res.json(r.rows);
-      }
-      if (req.method === 'POST') {
-        if (!user.is_admin) return res.status(403).json({ error: 'Admin only' });
-        const { name, business_unit_id } = req.body;
-        if (!name || !business_unit_id) return res.status(400).json({ error: 'name and business_unit_id required' });
-        const r = await pool.query(
-          'INSERT INTO jmb_teams (name, business_unit_id, created_by) VALUES ($1,$2,$3) RETURNING *',
-          [name, business_unit_id, user.id]
-        );
-        return res.json(r.rows[0]);
-      }
-      if (req.method === 'DELETE') {
-        if (!user.is_admin) return res.status(403).json({ error: 'Admin only' });
-        await pool.query('DELETE FROM jmb_teams WHERE id=$1', [req.query.id]);
-        return res.json({ ok: true });
-      }
-    }
-
-    // ── CLIENTS CRUD ──────────────────────────
+    // ── Clients CRUD ──────────────────────────
     if (action === 'clients') {
       if (req.method === 'GET') {
-        const r = await pool.query(
-          'SELECT * FROM jmb_clients WHERE agent_id=$1 ORDER BY created_at DESC',
-          [user.id]
-        );
+        const r = await pool.query('SELECT * FROM jmb_clients WHERE agent_id=$1 ORDER BY created_at DESC', [user.id]);
         return res.json(r.rows);
       }
       if (req.method === 'POST') {
@@ -191,7 +138,7 @@ module.exports = async (req, res) => {
     res.status(404).json({ error: 'Unknown action' });
 
   } catch (err) {
-    console.error('Fireberry API error:', err.message);
+    console.error('Fireberry error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
