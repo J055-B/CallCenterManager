@@ -438,14 +438,15 @@ function renderAll() {
   setTimeout(populateAgentFilterDropdowns, 100);
 }
 
-// Re-apply role after dynamic renders
-const _rA = renderAgents, _rAs = renderAssets, _rL = renderLoans;
-renderAgents = function(){ _rA(); if(userRole==='viewer') applyRole('viewer'); };
-renderAssets = function(){ _rAs(); if(userRole==='viewer') applyRole('viewer'); };
-renderLoans  = function(){ _rL(); if(userRole==='viewer') applyRole('viewer'); };
-
 // ── BOOT ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Re-apply role after dynamic renders (must be inside DOMContentLoaded
+  // so renderAgents etc are already defined by agents.js)
+  const _rA = renderAgents, _rAs = renderAssets, _rL = renderLoans;
+  renderAgents = function(){ _rA(); if(userRole==='viewer') applyRole('viewer'); };
+  renderAssets = function(){ _rAs(); if(userRole==='viewer') applyRole('viewer'); };
+  renderLoans  = function(){ _rL(); if(userRole==='viewer') applyRole('viewer'); };
+
   // Login bindings
   document.getElementById('l-btn').addEventListener('click', doLogin);
   document.getElementById('pin').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });

@@ -67,8 +67,6 @@ async function doServerLogin(username, password) {
 
 
 // ── CLIENTS ──────────────────────────────────────────────────
-let clients = [];
-let currentClientId = null;
 
 
 
@@ -125,7 +123,6 @@ function switchLogTab(key) {
 let clientsLeads    = [];
 let clientsAccounts = [];
 let clientTab       = 'leads';
-let agentsForFilter = [];  // cached agents for filter dropdown
 
 // ── Init panel: load agents for dropdown ──────────────────────
 async function initClientsPanel() {
